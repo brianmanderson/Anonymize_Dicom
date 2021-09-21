@@ -1,0 +1,7 @@
+numpy
+matplotlib
+SimpleITK
+PlotScrollNumpyArrays
+tensorflow
+pydicom
+DicomRTTool
