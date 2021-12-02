@@ -14,21 +14,20 @@ class DicomAnonymizerClass(object):
         self.reader = sitk.ImageSeriesReader()
         self.reader.GlobalWarningDisplayOff()
 
-    def change_dicom_image_files(self, series_instances_dictionary, out_path_base, iteration):
+    def change_dicom_image_files(self, files, out_path_base, iteration):
         out_path = os.path.join(out_path_base, 'Anonymized_Patient_{}'.format(iteration))
         if not os.path.exists(out_path):
             os.makedirs(out_path)
-        series_instance = series_instances_dictionary[iteration]
-        series_id = series_instance['SeriesInstanceUID']
-        dicom_path = series_instance['Image_Path']
-        dicom_names = self.reader.GetGDCMSeriesFileNames(dicom_path, series_id)
         PatientID = "Patient_{}".format(iteration)
         today = datetime.datetime.today()
         AcquistionDate = ContentDate = StudyDate = PatientsBirthDate = "{}{}{}".format(today.year, today.month, today.day)
         PatientName = "Anonymized_{}".format(iteration)
-        file_index = 0
-        for dicom_name in dicom_names:
-            ds = pydicom.read_file(dicom_name)
+        modality_names = {}
+        for file in files:
+            ds = pydicom.read_file(file)
+            modality = ds.Modality
+            if modality not in modality_names:
+                modality_names[modality] = 1
             ds.PatientID = PatientID
             ds.OtherPatientIDs = PatientID
             ds.AcquistionDate = AcquistionDate
@@ -36,33 +35,8 @@ class DicomAnonymizerClass(object):
             ds.StudyDate = StudyDate
             ds.PatientsBirthDate = PatientsBirthDate
             ds.PatientName = PatientName
-            pydicom.write_file(os.path.join(out_path, "dicom_{}.dcm".format(file_index)), ds)
-            file_index += 1
-        rt_index = 0
-        for RT in series_instance['RTs']:
-            ds = pydicom.read_file(series_instance['RTs'][RT]['Path'])
-            ds.PatientID = PatientID
-            ds.OtherPatientIDs = PatientID
-            ds.AcquistionDate = AcquistionDate
-            ds.ContentDate = ContentDate
-            ds.StudyDate = StudyDate
-            ds.PatientsBirthDate = PatientsBirthDate
-            ds.PatientName = PatientName
-            pydicom.write_file(os.path.join(out_path, "RT_{}.dcm".format(rt_index)), ds)
-            rt_index += 1
-
-        rd_index = 0
-        for RD in series_instance['RDs']:
-            ds = pydicom.read_file(series_instance['RDs'][RD]['Path'])
-            ds.PatientID = PatientID
-            ds.OtherPatientIDs = PatientID
-            ds.AcquistionDate = AcquistionDate
-            ds.ContentDate = ContentDate
-            ds.StudyDate = StudyDate
-            ds.PatientsBirthDate = PatientsBirthDate
-            ds.PatientName = PatientName
-            pydicom.write_file(os.path.join(out_path, "RD_{}.dcm".format(rd_index)), ds)
-            rt_index += 1
+            pydicom.write_file(os.path.join(out_path, "{}_{}.dcm".format(modality, modality_names[modality])), ds)
+            modality_names[modality] += 1
 
 def anonymize_dicom_down_path(input_path: typing.Union[str, bytes, os.PathLike],
                               output_path: typing.Union[str, bytes, os.PathLike]) -> None:
@@ -81,9 +55,9 @@ def anonymize_dicom_down_path(input_path: typing.Union[str, bytes, os.PathLike],
     For each patient, we will need to anonymize the images, structures, plans, and dose files while ensuring
     we still maintain a consistent identifier
     """
-    for key in reader.series_instances_dictionary.keys():
-        anonymizer.change_dicom_image_files(series_instances_dictionary=reader.series_instances_dictionary,
-                                            out_path_base=output_path, iteration=key)
+    for index in reader.series_instances_dictionary:
+        files = reader.return_files_from_index(index)
+        anonymizer.change_dicom_image_files(files=files, out_path_base=output_path, iteration=index)
     xxx = 1
 
 
