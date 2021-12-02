@@ -7,6 +7,31 @@ from DicomRTTool.ReaderWriter import DicomReaderWriter
 import typing
 
 
+def anonymize_list_of_files(files, out_path_base, anon_index):
+    out_path = os.path.join(out_path_base, 'Anonymized_Patient_{}'.format(anon_index))
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+    PatientID = "Patient_{}".format(anon_index)
+    today = datetime.datetime.today()
+    AcquistionDate = ContentDate = StudyDate = PatientsBirthDate = "{}{}{}".format(today.year, today.month, today.day)
+    PatientName = "Anonymized_{}".format(anon_index)
+    modality_names = {}
+    for file in files:
+        ds = pydicom.read_file(file)
+        modality = ds.Modality
+        if modality not in modality_names:
+            modality_names[modality] = 1
+        ds.PatientID = PatientID
+        ds.OtherPatientIDs = PatientID
+        ds.AcquistionDate = AcquistionDate
+        ds.ContentDate = ContentDate
+        ds.StudyDate = StudyDate
+        ds.PatientsBirthDate = PatientsBirthDate
+        ds.PatientName = PatientName
+        pydicom.write_file(os.path.join(out_path, "{}_{}.dcm".format(modality, modality_names[modality])), ds)
+        modality_names[modality] += 1
+
+
 class DicomAnonymizerClass(object):
     def __init__(self):
         self.image_reader = sitk.ImageFileReader()
@@ -37,6 +62,7 @@ class DicomAnonymizerClass(object):
             ds.PatientName = PatientName
             pydicom.write_file(os.path.join(out_path, "{}_{}.dcm".format(modality, modality_names[modality])), ds)
             modality_names[modality] += 1
+
 
 def anonymize_dicom_down_path(input_path: typing.Union[str, bytes, os.PathLike],
                               output_path: typing.Union[str, bytes, os.PathLike]) -> None:
